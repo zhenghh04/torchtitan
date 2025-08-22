@@ -33,6 +33,7 @@ from torchtitan.tools.profiling import (
 )
 
 
+
 class Trainer(torch.distributed.checkpoint.stateful.Stateful):
     # core configs
     job_config: JobConfig
@@ -82,17 +83,19 @@ class Trainer(torch.distributed.checkpoint.stateful.Stateful):
             logger.info(f"Running with args: {job_config.to_dict()}")
 
         device_module, device_type = utils.device_module, utils.device_type
-        self.device = torch.device(f"{device_type}:{int(os.environ['LOCAL_RANK'])}")
+        from blendcorpus.dist_setup import init_distributed, get_device, get_device_type                
+        self.device = get_device()
+        #self.device = torch.device(f"{device_type}:{int(os.environ['LOCAL_RANK'])}")
         # Device has to be set before creating TorchFT manager.
         device_module.set_device(self.device)
-
+        dist, rank, world_size = init_distributed()
         # init distributed and build meshes
         dist_utils.init_distributed(
             job_config.comm,
             enable_cpu_backend=job_config.training.enable_cpu_offload,
             base_folder=job_config.job.dump_folder,
         )
-        world_size = int(os.environ["WORLD_SIZE"])
+        #world_size = int(os.environ["WORLD_SIZE"])
         parallelism_config = job_config.parallelism
         self.parallel_dims = parallel_dims = ParallelDims(
             dp_shard=parallelism_config.data_parallel_shard_degree,

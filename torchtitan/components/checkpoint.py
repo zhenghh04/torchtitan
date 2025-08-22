@@ -23,7 +23,12 @@ from torch.distributed.checkpoint import (
     HuggingFaceStorageReader,
     HuggingFaceStorageWriter,
 )
-from torch.distributed.checkpoint.staging import DefaultStager, StagingOptions
+try:
+    from torch.distributed.checkpoint.staging import DefaultStager, StagingOptions
+except:
+    from torch.distributed.checkpoint.staging import BlockingAsyncStager as DefaultStager
+    def StagingOptions(a, b, c, d):
+        return True
 from torch.distributed.checkpoint.state_dict import (
     get_model_state_dict,
     set_model_state_dict,

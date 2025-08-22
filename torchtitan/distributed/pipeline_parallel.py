@@ -18,9 +18,9 @@ from torch.distributed.pipelining.schedules import (
     get_schedule_class,
     PipelineScheduleMulti,
     PipelineScheduleSingle,
-    ScheduleDualPipeV,
     ScheduleZBVZeroBubble,
 )
+ScheduleDualPipeV = ScheduleZBVZeroBubble
 
 from torchtitan.config import JobConfig
 from torchtitan.tools.logging import logger

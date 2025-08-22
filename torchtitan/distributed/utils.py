@@ -250,7 +250,7 @@ def init_distributed(
         os.environ[env] = val
 
     def _get_distributed_backend(enable_cpu_backend):
-        backend = "nccl"
+        backend = "ccl"
         if device_type in torch.distributed.Backend.default_device_backend_map:
             backend = torch.distributed.Backend.default_device_backend_map.get(
                 device_type
@@ -271,7 +271,7 @@ def init_distributed(
     # behavior differences
     _warn_overwrite_env(ASYNC_ERROR_HANDLING, SKIP_CLEANUP)
 
-    # enable torch nccl flight recorder in the mode that would dump files if timeout is detected
+    # Enable Torch nccl flight recorder in the mode that would dump files if timeout is detected
     _warn_overwrite_env(TRACE_BUFFER_SIZE, str(comm_config.trace_buf_size))
     if comm_config.trace_buf_size > 0:
         # dump on timeout by default if trace buffer is enabled
@@ -279,11 +279,11 @@ def init_distributed(
         dump_dir = os.path.join(base_folder, comm_config.save_traces_folder)
         os.makedirs(dump_dir, exist_ok=True)
         _warn_overwrite_env(TRACE_FILE, f"{dump_dir}/rank_")
-
-    torch.distributed.init_process_group(
-        backend=_get_distributed_backend(enable_cpu_backend),
-        timeout=timedelta(seconds=comm_config.init_timeout_seconds),
-    )
+    if not torch.distributed.is_initialized():        
+        torch.distributed.init_process_group(
+            backend=_get_distributed_backend(enable_cpu_backend),
+            timeout=timedelta(seconds=comm_config.init_timeout_seconds),
+        )
 
 
 def set_pg_timeouts(timeout, world_mesh):
