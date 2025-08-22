@@ -11,7 +11,7 @@ set -ex
 # LOG_RANK=0,1 NGPU=4 ./run_train.sh
 NGPU=${NGPU:-"8"}
 export LOG_RANK=${LOG_RANK:-0}
-CONFIG_FILE=${CONFIG_FILE:-"./torchtitan/experiments/blendcorpus/train_configs/debug_model.toml"}
+CONFIG_FILE=${CONFIG_FILE:-"./torchtitan/experiments/blendcorpus/train_configs/llama2_7b.toml"}
 
 TORCHFT_LIGHTHOUSE=${TORCHFT_LIGHTHOUSE:-"http://localhost:29510"}
 
