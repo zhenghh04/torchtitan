@@ -8,7 +8,7 @@ This document summarizes all code and configuration changes introduced to train 
 
 ### 1.1 Added SentencePiece tokenizer adapter
 
-**File**: torchtitan/datasets/tokenizer/sptoken.py
+**File**: ``torchtitan/experiments/blendcorpus/dataset/sptoken.py``
 
 **What**: New SPTokenizer wrapper around sentencepiece.SentencePieceProcessor.
 
@@ -24,31 +24,29 @@ This document summarizes all code and configuration changes introduced to train 
 
 ### 1.2 Added tokenizer router
 
-**File**: torchtitan/datasets/tokenizer/build_tokenizer.py
+**File**: ``torchtitan/experiments/blendcorpus/dataset/build_tokenizer.py``
 
 **What changed**:
 * build_tokenizer(job_config) now returns a tokenizer instance, not a function.
 * Accepts common aliases:
     - SentencePiece: "sptoken"
-    - Tiktoken: "tiktoken"
+    - HuggingFace: "hf"
 
 ```python
-from torchtitan.datasets.tokenizer.tiktoken import build_tiktoken_tokenizer
-from torchtitan.datasets.tokenizer.sptoken import build_sentencepiece_tokenizer
+from torchtitan.experiments.blendcorpus.dataset.sptoken import build_sentencepiece_tokenizer
+from torchtitan.components.tokenizer import build_hf_tokenizer
 
 def build_tokenizer(job_config):
-    backend = str(getattr(job_config.model, "tokenizer_backend", "")).strip().lower()
-    if backend in {"tiktoken", "tk"}:
-        return build_tiktoken_tokenizer(job_config)
-    elif backend in {"sptoken", "sentencepiece", "sp", "spm"}:
+    backend = str(getattr(job_config.model, 'tokenizer_backend', '')).strip().lower()
+    if backend in {'', 'sptoken', 'sentencepiece', 'sp', 'spm'}:
+        print('[Tokenizer] Using backend: sptoken (SentencePiece)')
         return build_sentencepiece_tokenizer(job_config)
-    raise Exception(f"Unknown tokenizer_backend '{job_config.model.tokenizer_backend}'")
-```
-
-In  ``./torchtitan/models/llama3/__init__.py`` change  
-```diff
--    build_tokenizer_fn=build_tiktoken_tokenizer
-+   build_tokenizer_fn=build_tokenizer,
+    if backend in {'huggingface', 'hf'}:
+        print('[Tokenizer] Using backend: huggingface (HF AutoTokenizer)')
+        return build_hf_tokenizer(job_config)
+    if backend == 'tiktoken':
+        raise NotImplementedError("tokenizer_backend='tiktoken' is not supported for this training recipe; use 'sptoken'.")
+    raise Exception(f"Unknown tokenizer_backend '{backend}'. Choose 'sptoken' or 'hf'.")
 ```
 
 ## 2) Dataloader Integration for BlendCorpus
@@ -73,16 +71,13 @@ Implementation highlights: ``set_consumed_by_global_step(step, global_batch_size
 
 ### 3.1 Selecting BlendCorpus as the dataset
 
-**File**: ``torchtitan/train.py``
+**File**: ``torchtitan/experiments/blendcorpus/train.py``
 
 **What**: At dataloader construction time, detect the dataset and route accordingly.
 
 **Example logic**:
 ```python
-ds_name = getattr(self.config.training, "dataset", "").strip().lower()
-if ds_name == "blendcorpus":
-    from torchtitan_ext.datasets.blendcorpus_builder import build_train_valid_test_dataloaders as _bc_build
-    train_dl, valid_dl, test_dl = _bc_build(self.config, tokenizer)
+    train_dl, valid_dl, test_dl = self.train_spec.build_dataloader_fn(self.config, global_batch_size)
     self.dataloader = train_dl
     self.eval_dataloader = valid_dl
     self.test_dataloader = test_dl
@@ -92,7 +87,7 @@ else:
 ```
 ### 3.2 Advancing the dataloader after checkpoint restore
 
-**File**: ``torchtitan/train.py``
+**File**: ``torchtitan/experiments/blendcorpus/train.py``
 
 **What**: After ``self.checkpointer.load(...)`` restores self.step, advance BlendCorpus’ dataloader to the correct consumed samples.
 
@@ -117,7 +112,7 @@ consumed = step * global_batch_size.
 
 ### 4.1 New [blendcorpus] TOML section and dataclass
 
-**File**: ``torchtitan/config_manager.py``
+**File**: ``torchtitan/experiments/blendcorpus/job_config.py``
 
 **What**: Introduced a new dataclass and a field on JobConfig to expose BlendCorpus-specific knobs directly in the parsed config.
 
@@ -205,5 +200,16 @@ context_parallel_degree = 1
 
 ## 6) Running
 ```bash
-NGPU=1 CONFIG_FILE="./torchtitan/models/llama3/train_configs/debug_model_blendcorpus.toml" ./run_train.sh 
+NGPU=1 CONFIG_FILE="./torchtitan/experiments/blendcorpus/train_configs/debug_model.toml" ./torchtitan/experiments/blendcorpus/run_train.sh 
 ```
+
+## 7) Experiments Directory
+
+The `torchtitan/experiments/blendcorpus/` folder now contains ready-to-run experiment configurations, logs, and scripts to reproduce BlendCorpus training with TorchTitan.
+
+Typical contents include:
+* Example TOML config files for various scales (debug, 1B scale, etc.)
+* Run scripts adapted for JLSE/Vast paths to facilitate seamless execution
+* Logs and checkpoints for verification and analysis of training runs
+
+Users can start from these provided configs as templates to customize and launch their own BlendCorpus training experiments.
