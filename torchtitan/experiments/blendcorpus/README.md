@@ -49,6 +49,13 @@ def build_tokenizer(job_config):
     raise Exception(f"Unknown tokenizer_backend '{backend}'. Choose 'sptoken' or 'hf'.")
 ```
 
+In configuration manager, we extended the following option: 
+```python
+@dataclass
+class Model:
+    tokenizer_backend: str = "sptoken"
+```
+
 ## 2) Dataloader Integration for BlendCorpus
 
 ### 2.1 New external adapter
@@ -119,6 +126,7 @@ consumed = step * global_batch_size.
 Dataclass added (verbatim):
 
 ```python
+
 @dataclass
 class BlendCorpus:
     """Optional settings specific to the BlendCorpus data loader.
@@ -148,7 +156,10 @@ class BlendCorpus:
     dataloader_type: str = "single"
     """Loader type hint (e.g., 'single', 'repeating')."""
 
-    shuffle: bool = True
+    shuffle_sample_in_corpus: bool = True
+    """Whether to shuffle samples within corpus."""
+
+    blend_sample_in_corpus: bool = True
     """Whether to shuffle samples within corpus."""
 
     append_eod: bool = True
@@ -159,6 +170,9 @@ class BlendCorpus:
 
     eod_token_id: int | None = None
     """Optional explicit EOD token id; if None the adapter/tokenizer decides."""
+
+    data_cache_path: str = None
+# --- END BlendCorpus dataclass ---
 ```
 
 ## 5) Configuration Examples
